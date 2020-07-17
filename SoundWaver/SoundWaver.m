@@ -14,6 +14,9 @@
 #define kDefLineSpace 9
 #define kDefLineWidth 4
 
+#define kDefLineColor [UIColor redColor]
+#define kDefLineBgColor [UIColor cyanColor]
+
 @interface SoundWaver()
 
 @property (nonatomic) NSMutableArray *soundMeters;
@@ -27,8 +30,11 @@
         self.backgroundColor = [UIColor clearColor];
         self.contentMode = UIViewContentModeRedraw;
         
-        lineSpace = kDefLineSpace;
-        lineWidth = kDefLineWidth;
+        _lineSpace = kDefLineSpace;
+        _lineWidth = kDefLineWidth;
+        
+        _lineColor = kDefLineColor;
+        _lineBgColor = kDefLineBgColor;
         
         self.maxAmplitude = kDefMaxAmplitude;
         self.minAmplitude = kDefMinAmplitude;
@@ -46,20 +52,20 @@
     CGContextSetLineCap(ctx, kCGLineCapRound);
     CGContextSetLineJoin(ctx, kCGLineJoinRound);
     
-    CGContextSetLineWidth(ctx, lineWidth);
+    CGContextSetLineWidth(ctx, _lineWidth);
     
     [self.soundMeters enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         // draw bg
-        CGContextSetStrokeColorWithColor(ctx, [UIColor cyanColor].CGColor);
-        CGContextMoveToPoint(ctx, idx * (lineWidth + lineSpace) + lineWidth / 2, lineWidth / 2);
-        CGContextAddLineToPoint(ctx, idx * (lineWidth + lineSpace) + lineWidth / 2, ctn_h - lineWidth / 2);
+        CGContextSetStrokeColorWithColor(ctx, _lineBgColor.CGColor);
+        CGContextMoveToPoint(ctx, idx * (_lineWidth + _lineSpace) + _lineWidth / 2, _lineWidth / 2);
+        CGContextAddLineToPoint(ctx, idx * (_lineWidth + _lineSpace) + _lineWidth / 2, ctn_h - _lineWidth / 2);
         CGContextStrokePath(ctx);
         // draw line
-        CGFloat lineStart = (self.maxAmplitude - [obj floatValue]) * (ctn_h - lineWidth) / (self.maxAmplitude - self.minAmplitude) + lineWidth / 2;
-        if (lineStart != ctn_h - lineWidth / 2) {
-            CGContextSetStrokeColorWithColor(ctx, [UIColor redColor].CGColor);
-            CGContextMoveToPoint(ctx, idx * (lineWidth + lineSpace) + lineWidth / 2, lineStart);
-            CGContextAddLineToPoint(ctx, idx * (lineWidth + lineSpace) + lineWidth / 2, ctn_h - lineWidth / 2);
+        CGFloat lineStart = (self.maxAmplitude - [obj floatValue]) * (ctn_h - _lineWidth) / (self.maxAmplitude - self.minAmplitude) + _lineWidth / 2;
+        if (lineStart != ctn_h - _lineWidth / 2) {
+            CGContextSetStrokeColorWithColor(ctx, _lineColor.CGColor);
+            CGContextMoveToPoint(ctx, idx * (_lineWidth + _lineSpace) + _lineWidth / 2, lineStart);
+            CGContextAddLineToPoint(ctx, idx * (_lineWidth + _lineSpace) + _lineWidth / 2, ctn_h - _lineWidth / 2);
         }
         CGContextStrokePath(ctx);
     }];
@@ -69,13 +75,13 @@
 
 - (void)updateMeter:(float)power {
     CGFloat ctn_w = self.frame.size.width;
-    int lineCount = ctn_w / (lineWidth + lineSpace);
-    if ((int)ctn_w % (int)(lineWidth + lineSpace) >= lineWidth) {
+    int lineCount = ctn_w / (_lineWidth + _lineSpace);
+    if ((int)ctn_w % (int)(_lineWidth + _lineSpace) >= _lineWidth) {
         lineCount++;
     }
     
     if (lineCount > 0) {
-        [self.soundMeters addObject:@(powf(10, power / 40))];
+        [self.soundMeters addObject:@([self formula:power])];
         if (self.soundMeters.count > lineCount) {
             NSRange expiredRange = NSMakeRange(0, self.soundMeters.count - lineCount);
             [self.soundMeters removeObjectsInRange:expiredRange];
@@ -86,24 +92,26 @@
 
 - (void)resetWaver {
     CGFloat ctn_w = self.frame.size.width;
-    int lineCount = ctn_w / (lineWidth + lineSpace);
-    if ((int)ctn_w % (int)(lineWidth + lineSpace) >= lineWidth) {
+    int lineCount = ctn_w / (_lineWidth + _lineSpace);
+    if ((int)ctn_w % (int)(_lineWidth + _lineSpace) >= _lineWidth) {
         lineCount++;
     }
     
     if (lineCount > 0) {
+        [self.soundMeters removeAllObjects];
         for (int i = 0; i < lineCount; i++) {
             [self.soundMeters addObject:@(self.minAmplitude)];
         }
+        [self setNeedsDisplay];
     }
 }
 
 - (void)setMaxAmplitude:(float)maxAmplitude {
-    _maxAmplitude = powf(10, maxAmplitude / 40);
+    _maxAmplitude = [self formula:maxAmplitude];
 }
 
 - (void)setMinAmplitude:(float)minAmplitude {
-    _minAmplitude = powf(10, minAmplitude / 40);
+    _minAmplitude = [self formula:minAmplitude];
 }
 
 - (NSMutableArray *)soundMeters {
@@ -114,8 +122,8 @@
     return _soundMeters;
 }
 
-- (void)power2Amplitude:(float)power {
-    
+- (float)formula:(float)power {
+    return _translationFormula ? _translationFormula(power) : powf(10, power / 40);
 }
 
 @end
